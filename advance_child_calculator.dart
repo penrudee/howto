@@ -22,6 +22,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
   double? _idealBodyWeight;
   double? _childDose;
   Gender? _gender;
+
   Future<double> compareAgeWeight(
       double age, double weight, double height, Gender _gender) async {
     final List<List<dynamic>> csvDataBoy = await loadCsvBoy();
@@ -75,7 +76,8 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
   }
 
   Future<double> calculateChildDose(double idealBodyWeight) async {
-    MedicineProvider medicineProvider = MedicineProvider();
+    MedicineProvider medicineProvider =
+        Provider.of<MedicineProvider>(context, listen: false);
     double doseInMl = await medicineProvider.calculateDose(idealBodyWeight);
     print("####################");
     print("dose in ml $doseInMl");
@@ -92,7 +94,15 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
     double? height = double.parse(_heightController.text);
     double? weight = double.parse(_weightController.text);
     double? age = double.parse(_ageController.text);
+    if (height == null || weight == null || age == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text("Invalid input please enter valid Weight,Height,Age.")));
+    }
 
+    MedicineProvider medicineProvider =
+        Provider.of<MedicineProvider>(context, listen: false);
+    medicineProvider.selectMedicine(medicineProvider.selectedMedicineId!);
     double _idealBodyWeight =
         await calculateIdealBodyWeight(height, weight, age, _gender);
 
@@ -106,6 +116,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
 
   @override
   Widget build(BuildContext context) {
+    MedicineProvider medicineProvider = Provider.of<MedicineProvider>(context);
     return Scaffold(
       appBar: AppBar(
         title: Text('Advanced Child Calculation'),
