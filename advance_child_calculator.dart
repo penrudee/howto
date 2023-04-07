@@ -22,29 +22,56 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
   double? _idealBodyWeight;
   double? _childDose;
   Gender? _gender;
+  Future<double> compareAgeWeight(
+      double age, double weight, double height, Gender _gender) async {
+    final List<List<dynamic>> csvDataBoy = await loadCsvBoy();
+    final List<List<dynamic>> csvDataGirl = await loadCsvGirl();
+    print("age $age");
+    print("weight $widget");
+    print("height $height");
+    print("Gender $_gender");
+    double bmi = 0;
+    bool found = false;
+    if (_gender == Gender.male) {
+      print("if gender = male $_gender");
+      for (final List<dynamic> row in csvDataBoy) {
+        if (row[0] == age) {
+          print("row[0] ${row[0]}");
+          bmi = row[1];
+          found = true;
+
+          print("### from compareAgeWeight ###");
+          print("bmi got from compare =$bmi");
+          break;
+        }
+      }
+    } else {
+      for (final List<dynamic> row in csvDataGirl) {
+        if (row[0] == age) {
+          bmi = row[1];
+          found = true;
+
+          break;
+        }
+      }
+    }
+    if (!found) {
+      bmi = weight / (height * height);
+    }
+    return bmi;
+  }
+
   Future<double> calculateIdealBodyWeight(
       double height, double weight, double age, _gender) async {
-    if (age >= 1 || age <= 18) {
+    if (age >= 2 || age <= 18) {
       double fat_bmi = await compareAgeWeight(age, weight, height, _gender);
+      print(" ### ### ### ");
+      print("fat bmi = $fat_bmi");
+      print(" ### ### ### ");
 
-      double height_in_m = height / 100;
-      double bmi = weight / (height_in_m * height_in_m);
-      if (fat_bmi > bmi) {
-        double ibw = ((height * height) * 1.65) / 10000;
-        return ibw;
-      }
-    } else if (age > 18 && _gender == Gender.male) {
-      double height_in_feet = height * 0.03281;
-      double ibw = 50 + (2.3 * height_in_feet);
-      return ibw;
-    } else if (age > 18 && _gender == Gender.female) {
-      double height_in_feet = height * 0.03281;
-      double ibw = 42.2 + (2.3 * height_in_feet);
-      return ibw;
-    } else {
-      return weight;
+      return fat_bmi;
     }
-    return 0.0;
+    return weight;
   }
 
   Future<double> calculateChildDose(double idealBodyWeight) async {
@@ -70,7 +97,10 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
         await calculateIdealBodyWeight(height, weight, age, _gender);
 
     double _childDose = await calculateChildDose(_idealBodyWeight);
-
+    print("###################");
+    print("in calculate function");
+    print("ideal body weight $_idealBodyWeight");
+    print("child dose ml ${_childDose}");
     return _childDose;
   }
 
@@ -158,6 +188,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
                     hint: Text('Select Medicine'),
                     value: medicineProvider.selectedMedicineId,
                     onChanged: (int? newValue) {
+                      print("medicine id = $newValue");
                       medicineProvider.selectMedicine(newValue!);
                     },
                     items: medicineProvider.medicines
@@ -217,35 +248,5 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
     final String file =
         await rootBundle.loadString('assets/CSV/bmi_girl_utf8.csv');
     return CsvToListConverter().convert(file);
-  }
-
-  Future<double> compareAgeWeight(
-      double age, double weight, double height, Gender _gender) async {
-    final List<List<dynamic>> csvDataBoy = await loadCsvBoy();
-    final List<List<dynamic>> csvDataGirl = await loadCsvGirl();
-    double bmi = 0;
-    if (_gender == Gender.male) {
-      for (final List<dynamic> row in csvDataBoy) {
-        if (row[0] == age) {
-          bmi = row[1];
-          return bmi;
-        } else {
-          bmi = weight / (height * height);
-          return bmi;
-        }
-      }
-      return bmi;
-    } else {
-      for (final List<dynamic> row in csvDataGirl) {
-        if (row[0] == age) {
-          bmi = row[1];
-          return bmi;
-        } else {
-          bmi = weight / (height * height);
-          return bmi;
-        }
-      }
-      return bmi;
-    }
   }
 }
