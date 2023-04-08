@@ -267,7 +267,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
                         SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () async {
-                            if (_formKey.currentState!.validate()) {
+                            if (_formKey.currentState?.validate() == true) {
                               // double doseInMl = await calculate();
                               CalculationResult _result = await calculateR(
                                   context,
@@ -358,12 +358,12 @@ Future<CalculationResult> calculateR(
     TextEditingController _heightController,
     TextEditingController _weightController,
     TextEditingController _ageController,
-    Gender _gender) async {
+    Gender? _gender) async {
   _AdvancedChildCalculationState state = _AdvancedChildCalculationState();
   // TextEditingController _heightController = state._heightController;
   // TextEditingController _weightController = state._weightController;
   // TextEditingController _ageController = state._ageController;
-  Gender? _gender = state._gender;
+  // Gender? _gender = state._gender;
   print("height from outerspace $_heightController");
   print("weight from outerspace $_weightController");
   print("Age from outerspace $_ageController");
@@ -390,11 +390,11 @@ Future<CalculationResult> calculateR(
       Provider.of<MedicineProvider>(context, listen: false);
   medicineProvider.selectMedicine(medicineProvider.selectedMedicineId!);
   double? _idealBodyWeight =
-      await state.calculateIdealBodyWeight(height!, weight!, age!, _gender);
+      await state.calculateIdealBodyWeight(height, weight, age, _gender);
 
-  double _childDose = await state.calculateChildDose(_idealBodyWeight!);
-  double myBottleVolume = double.parse(state._buttonVolume.text);
-  int takeday = int.parse(state._takeMedDay.text);
+  double _childDose = await state.calculateChildDose(_idealBodyWeight);
+  double myBottleVolume = double.parse(state._buttonVolume?.text ?? '0');
+  int takeday = int.parse(state._takeMedDay?.text ?? "0");
   double _bottleGiveTopatient =
       await state.bottle(_childDose, takeday, myBottleVolume);
   return CalculationResult(
