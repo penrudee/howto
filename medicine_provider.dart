@@ -9,19 +9,21 @@ class MedicineProvider with ChangeNotifier {
   double? concentration;
   int? frequency;
   MedicineProvider() {
-    _loadMedicines();
+    loadMedicines();
   }
 
   void selectMedicine(int id) {
     selectedMedicineId = id;
+    print("medicine id from Medicine provider =$selectedMedicineId");
     Map<String, dynamic> medicine = medicines.firstWhere((m) => m['id'] == id);
     dose = medicine['dose'];
+    print("dose from selectMedicine $dose");
     concentration = medicine['concentration'];
     frequency = medicine['frequency'];
     notifyListeners();
   }
 
-  void _loadMedicines() async {
+  void loadMedicines() async {
     final dbHelper = DatabaseHelper.instance;
     List<Map<String, dynamic>> medicineList = await dbHelper.queryAllRows();
     medicines = List<Map<String, dynamic>>.from(medicineList);
@@ -49,6 +51,11 @@ class MedicineProvider with ChangeNotifier {
   }
 
   double calculateDose(double weight) {
+    print("From calculateDose in med provider file");
+    print("Weight $weight");
+    print("dose $dose");
+    print("concentration: $concentration");
+    print("frequency $frequency");
     if (dose != null && concentration != null && frequency != null) {
       return (weight * (dose ?? 0.0) / (concentration ?? 1.0)) /
           (frequency ?? 1);
@@ -66,13 +73,13 @@ class MedicineProvider with ChangeNotifier {
       'concentration': concentration,
       'frequency': frequency,
     });
-    _loadMedicines();
+    loadMedicines();
   }
 
   Future<void> deleteMedicine(int id) async {
     final dbHelper = DatabaseHelper.instance;
     await dbHelper.delete(id);
-    _loadMedicines();
+    loadMedicines();
   }
 
   Future<void> setCSVUploaded(bool uploaded) async {
@@ -86,6 +93,6 @@ class MedicineProvider with ChangeNotifier {
   }
 
   void reloadData() {
-    _loadMedicines();
+    loadMedicines();
   }
 }
