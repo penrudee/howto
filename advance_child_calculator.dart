@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'medicine_provider.dart';
 import 'dart:async' show Future;
 import 'dart:convert' show utf8;
+import 'dart:math';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 
@@ -18,6 +19,9 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
+  // เพิ่มกล่องข้อความกรอกปริมาตรขวดยา
+  final TextEditingController _buttonVolume = TextEditingController();
+  final TextEditingController _takeMedDay = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   double? _idealBodyWeight;
   double? _childDose;
@@ -27,6 +31,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
       double age, double weight, double height, Gender _gender) async {
     final List<List<dynamic>> csvDataBoy = await loadCsvBoy();
     final List<List<dynamic>> csvDataGirl = await loadCsvGirl();
+    final List<List<dynamic>> csvData = await loadCsv(_gender);
     print("age $age");
     print("weight $widget");
     print("height $height");
@@ -35,7 +40,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
     bool found = false;
     if (_gender == Gender.male) {
       print("if gender = male $_gender");
-      for (final List<dynamic> row in csvDataBoy) {
+      for (final List<dynamic> row in csvData) {
         if (row[0] == age) {
           print("row[0] ${row[0]}");
           bmi = row[1];
@@ -47,7 +52,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
         }
       }
     } else {
-      for (final List<dynamic> row in csvDataGirl) {
+      for (final List<dynamic> row in csvData) {
         if (row[0] == age) {
           bmi = row[1];
           found = true;
@@ -85,6 +90,22 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
     return doseInMl;
   }
 
+  Future<int> bottle(
+      double chilDose, int frequency, int takeday, double bottleVolume) async {
+    if (chilDose != null &&
+        frequency != null &&
+        takeday != null &&
+        bottleVolume != null) {
+      double totolTakeVolume = (chilDose * frequency * takeday);
+      double bottleToPrescribe = totolTakeVolume / bottleVolume;
+      if (bottleToPrescribe != null) {
+        int roundedBottleValue = bottleToPrescribe.ceil();
+        return roundedBottleValue;
+      }
+    }
+    return 0;
+  }
+
   Future<double> calculate() async {
     if (_heightController.text.isEmpty ||
         _weightController.text.isEmpty | _ageController.text.isEmpty) {
@@ -107,10 +128,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
         await calculateIdealBodyWeight(height, weight, age, _gender);
 
     double _childDose = await calculateChildDose(_idealBodyWeight);
-    print("###################");
-    print("in calculate function");
-    print("ideal body weight $_idealBodyWeight");
-    print("child dose ml ${_childDose}");
+
     return _childDose;
   }
 
@@ -121,141 +139,189 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
       appBar: AppBar(
         title: Text('Advanced Child Calculation'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: <Widget>[
-              Row(
-                children: [
-                  Expanded(
-                      child: ListTile(
-                    title: const Text("Boy"),
-                    leading: Radio<Gender>(
-                      value: Gender.male,
-                      groupValue: _gender,
-                      onChanged: ((Gender? value) {
-                        setState(() {
-                          _gender = value;
-                        });
-                        if (_gender == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Choose Boy Or Girl."),
-                            ),
-                          );
-                        }
-                      }),
-                    ),
-                  )),
-                  Expanded(
-                      child: ListTile(
-                    title: const Text('Girl'),
-                    leading: Radio<Gender>(
-                      value: Gender.female,
-                      groupValue: _gender,
-                      onChanged: (Gender? value) {
-                        setState(() {
-                          _gender = value;
-                        });
-                        if (_gender == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Choose Boy or Girl."),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  )),
-                ],
-              ),
-              TextField(
-                controller: _ageController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: "Age(Year)",
-                ),
-              ),
-              TextField(
-                controller: _weightController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Weight (kg)',
-                ),
-              ),
-              TextField(
-                controller: _heightController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Height (cm)',
-                ),
-              ),
-              SizedBox(height: 16),
-              Consumer<MedicineProvider>(
-                builder: (_, medicineProvider, __) {
-                  return DropdownButtonFormField<int>(
-                    hint: Text('Select Medicine'),
-                    value: medicineProvider.selectedMedicineId,
-                    onChanged: (int? newValue) {
-                      print("medicine id = $newValue");
-                      medicineProvider.selectMedicine(newValue!);
-                    },
-                    items: medicineProvider.medicines
-                        .map<DropdownMenuItem<int>>((medicine) {
-                      return DropdownMenuItem<int>(
-                        value: medicine['id'],
-                        child: Text(medicine['name']),
-                      );
-                    }).toList(),
-                    validator: (value) {
-                      if (value == null) {
-                        return 'Please select a medicine';
-                      }
-                      return null;
-                    },
-                  );
-                },
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    double result = await calculate();
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text('Calculated Dose'),
-                        content: Text('The calculated dose is $result ml.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: Text('OK'),
+      body: FutureBuilder<List<List<dynamic>>>(
+        future: loadCsv(_gender),
+        builder: (BuildContext context,
+            AsyncSnapshot<List<List<dynamic>>> snapshot) {
+          if (snapshot.hasData) {
+            List<List<dynamic>> csvData = snapshot.data!;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: <Widget>[
+                        Row(
+                          children: [
+                            Expanded(
+                                child: ListTile(
+                              title: const Text("Boy"),
+                              leading: Radio<Gender>(
+                                value: Gender.male,
+                                groupValue: _gender,
+                                onChanged: ((Gender? value) {
+                                  setState(() {
+                                    _gender = value;
+                                  });
+                                  if (_gender == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("Choose Boy Or Girl."),
+                                      ),
+                                    );
+                                  }
+                                }),
+                              ),
+                            )),
+                            Expanded(
+                                child: ListTile(
+                              title: const Text('Girl'),
+                              leading: Radio<Gender>(
+                                value: Gender.female,
+                                groupValue: _gender,
+                                onChanged: (Gender? value) {
+                                  setState(() {
+                                    _gender = value;
+                                  });
+                                  if (_gender == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("Choose Boy or Girl."),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            )),
+                          ],
+                        ),
+                        TextField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: "Age(Year)",
                           ),
-                        ],
-                      ),
-                    );
-                  }
-                },
-                child: Text('Calculate Dose'),
-              ),
-            ],
-          ),
-        ),
+                        ),
+                        TextField(
+                          controller: _weightController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Weight (kg)',
+                          ),
+                        ),
+                        TextField(
+                          controller: _heightController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Height (cm)',
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Consumer<MedicineProvider>(
+                          builder: (_, medicineProvider, __) {
+                            return DropdownButtonFormField<int>(
+                              hint: Text('Select Medicine'),
+                              value: medicineProvider.selectedMedicineId,
+                              onChanged: (int? newValue) {
+                                print("medicine id = $newValue");
+                                medicineProvider.selectMedicine(newValue!);
+                              },
+                              items: medicineProvider.medicines
+                                  .map<DropdownMenuItem<int>>((medicine) {
+                                return DropdownMenuItem<int>(
+                                  value: medicine['id'],
+                                  child: Text(medicine['name']),
+                                );
+                              }).toList(),
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Please select a medicine';
+                                }
+                                return null;
+                              },
+                            );
+                          },
+                        ),
+                        TextField(
+                          controller: _buttonVolume,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                              labelText: 'Bีottle Volumne(milliliter)'),
+                        ),
+                        TextField(
+                          controller: _takeMedDay,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText:
+                                "จำนวนวันที่ต้องรับประทานยา \nเช่น 7วัน กรอกเลข 7",
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () async {
+                            if (_formKey.currentState!.validate()) {
+                              double result = await calculate();
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Calculated Dose'),
+                                  content: Text(
+                                      'The calculated dose is $result ml.\n จำนวนขวดยาที่ต้องให้ผู้ป่วย $_resultBottle'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          },
+                          child: Text('Calculate Dose'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            );
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text("Error loading csv data: ${snapshot.error}"),
+            );
+          } else {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+        },
       ),
     );
   }
+}
 
-  Future<List<List<dynamic>>> loadCsvBoy() async {
+Future<List<List<dynamic>>> loadCsvBoy() async {
+  final String file =
+      await rootBundle.loadString('assets/CSV/bmi_boy_utf8.csv');
+  return CsvToListConverter().convert(file);
+}
+
+Future<List<List<dynamic>>> loadCsvGirl() async {
+  final String file =
+      await rootBundle.loadString('assets/CSV/bmi_girl_utf8.csv');
+  return CsvToListConverter().convert(file);
+}
+
+Future<List<List<dynamic>>> loadCsv(gender) async {
+  if (gender == Gender.male) {
     final String file =
         await rootBundle.loadString('assets/CSV/bmi_boy_utf8.csv');
     return CsvToListConverter().convert(file);
-  }
-
-  Future<List<List<dynamic>>> loadCsvGirl() async {
+  } else {
     final String file =
         await rootBundle.loadString('assets/CSV/bmi_girl_utf8.csv');
     return CsvToListConverter().convert(file);
