@@ -26,7 +26,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
   double? _idealBodyWeight;
   double? _childDose;
   Gender? _gender;
-
+  Gender? get gender => _gender;
   Future<double> compareAgeWeight(
       double age, double weight, double height, Gender _gender) async {
     final List<List<dynamic>> csvDataBoy = await loadCsvBoy();
@@ -90,8 +90,11 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
     return doseInMl;
   }
 
-  Future<int> bottle(
-      double chilDose, int frequency, int takeday, double bottleVolume) async {
+  Future<double> bottle(
+      double chilDose, int takeday, double bottleVolume) async {
+    MedicineProvider medicineProvider =
+        await Provider.of<MedicineProvider>(context);
+    int? frequency = medicineProvider.frequency;
     if (chilDose != null &&
         frequency != null &&
         takeday != null &&
@@ -99,7 +102,7 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
       double totolTakeVolume = (chilDose * frequency * takeday);
       double bottleToPrescribe = totolTakeVolume / bottleVolume;
       if (bottleToPrescribe != null) {
-        int roundedBottleValue = bottleToPrescribe.ceil();
+        double roundedBottleValue = bottleToPrescribe.ceil().toDouble();
         return roundedBottleValue;
       }
     }
@@ -128,7 +131,10 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
         await calculateIdealBodyWeight(height, weight, age, _gender);
 
     double _childDose = await calculateChildDose(_idealBodyWeight);
-
+    double myBottleVolume = double.parse(_buttonVolume.text);
+    int takeday = int.parse(_takeMedDay.text);
+    double _bottleGiveTopatient =
+        await bottle(_childDose, takeday, myBottleVolume);
     return _childDose;
   }
 
@@ -262,13 +268,24 @@ class _AdvancedChildCalculationState extends State<AdvancedChildCalculation> {
                         ElevatedButton(
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              double result = await calculate();
+                              // double doseInMl = await calculate();
+                              CalculationResult _result = await calculateR(
+                                  context,
+                                  _heightController,
+                                  _weightController,
+                                  _ageController,
+                                  _gender);
+                              double doseInMl = _result.childDose;
+                              double _resultBottle =
+                                  _result.bottleGiveToPatient;
+                              print(
+                                  "result Childdose ${doseInMl} \n bottle $_resultBottle");
                               showDialog(
                                 context: context,
                                 builder: (context) => AlertDialog(
                                   title: Text('Calculated Dose'),
                                   content: Text(
-                                      'The calculated dose is $result ml.\n จำนวนขวดยาที่ต้องให้ผู้ป่วย $_resultBottle'),
+                                      'The calculated dose is $doseInMl ml.\n จำนวนขวดยาที่ต้องให้ผู้ป่วย $_resultBottle'),
                                   actions: [
                                     TextButton(
                                       onPressed: () {
@@ -326,4 +343,60 @@ Future<List<List<dynamic>>> loadCsv(gender) async {
         await rootBundle.loadString('assets/CSV/bmi_girl_utf8.csv');
     return CsvToListConverter().convert(file);
   }
+}
+
+class CalculationResult {
+  final double childDose;
+  final double bottleGiveToPatient;
+
+  CalculationResult(
+      {required this.childDose, required this.bottleGiveToPatient});
+}
+
+Future<CalculationResult> calculateR(
+    BuildContext context,
+    TextEditingController _heightController,
+    TextEditingController _weightController,
+    TextEditingController _ageController,
+    Gender _gender) async {
+  _AdvancedChildCalculationState state = _AdvancedChildCalculationState();
+  // TextEditingController _heightController = state._heightController;
+  // TextEditingController _weightController = state._weightController;
+  // TextEditingController _ageController = state._ageController;
+  Gender? _gender = state._gender;
+  print("height from outerspace $_heightController");
+  print("weight from outerspace $_weightController");
+  print("Age from outerspace $_ageController");
+  print("Gender from outerspace $_gender");
+  if (_heightController.text.isEmpty ||
+      _weightController.text.isEmpty ||
+      _ageController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please enter Weight, Height, and Age")));
+    return CalculationResult(childDose: 0.0, bottleGiveToPatient: 0.0);
+  }
+
+  double? height = double.tryParse(_heightController.text);
+  double? weight = double.tryParse(_weightController.text);
+  double? age = double.tryParse(_ageController.text);
+  if (height == null || weight == null || age == null) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text("Invalid input please enter valid Weight, Height, and Age.")));
+    return CalculationResult(childDose: 0.0, bottleGiveToPatient: 0.0);
+  }
+
+  MedicineProvider medicineProvider =
+      Provider.of<MedicineProvider>(context, listen: false);
+  medicineProvider.selectMedicine(medicineProvider.selectedMedicineId!);
+  double? _idealBodyWeight =
+      await state.calculateIdealBodyWeight(height!, weight!, age!, _gender);
+
+  double _childDose = await state.calculateChildDose(_idealBodyWeight!);
+  double myBottleVolume = double.parse(state._buttonVolume.text);
+  int takeday = int.parse(state._takeMedDay.text);
+  double _bottleGiveTopatient =
+      await state.bottle(_childDose, takeday, myBottleVolume);
+  return CalculationResult(
+      childDose: _childDose, bottleGiveToPatient: _bottleGiveTopatient);
 }
